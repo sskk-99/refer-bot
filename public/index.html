@@ -34,27 +34,38 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const params = new URLSearchParams(window.location.search);
-    const refId = params.get("ref") || "default_user";
+    // Async function to handle Firestore logic
+    async function handleReferral() {
+      const params = new URLSearchParams(window.location.search);
+      const refId = params.get("ref") || "default_user"; // Default to "default_user" if no ref param
 
-    const referralLink = `https://refer-bot-eb51d.web.app/?ref=${refId}`;
-    document.getElementById("referralLink").value = referralLink;
+      // Create referral link
+      const referralLink = `https://refer-bot-eb51d.web.app/?ref=${refId}`;
+      document.getElementById("referralLink").value = referralLink;
 
-    const userRef = doc(db, "referrals", refId);
+      // Reference to Firestore user document
+      const userRef = doc(db, "referrals", refId);
 
-    if (params.get("ref")) {
-      await setDoc(userRef, { count: increment(1) }, { merge: true });
+      // Increment the referral count in Firestore
+      if (params.get("ref")) {
+        await setDoc(userRef, { count: increment(1) }, { merge: true });
+      }
+
+      // Listen for changes to Firestore and update the UI with the latest count
+      onSnapshot(userRef, (docSnap) => {
+        const count = docSnap.data()?.count || 0;
+        document.getElementById("referral-count").innerText = `Referral Count: ${count}`;
+      });
     }
 
-    onSnapshot(userRef, (docSnap) => {
-      const count = docSnap.data()?.count || 0;
-      document.getElementById("referral-count").innerText = `Referral Count: ${count}`;
-    });
+    // Call the async function to handle referral
+    handleReferral();
 
+    // Function to copy the referral link
     window.copyLink = function () {
       const input = document.getElementById("referralLink");
       input.select();
-      input.setSelectionRange(0, 99999);
+      input.setSelectionRange(0, 99999); // For mobile support
       document.execCommand("copy");
       alert("Referral link copied: " + input.value);
     };
