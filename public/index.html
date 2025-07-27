@@ -1,186 +1,143 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Referral Mini App</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f4f4;
-    }
-    nav {
-      display: flex;
-      justify-content: space-around;
-      background-color: #2196F3;
-      padding: 10px;
-      color: white;
-    }
-    nav button {
-      padding: 10px;
-      background-color: #f4f4f4;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      color: #2196F3;
-    }
-    section {
-      padding: 20px;
-      display: none;
-    }
-    section.active {
-      display: block;
-    }
-    h2 {
-      text-align: center;
-    }
-    input {
-      width: 100%;
-      padding: 8px;
-      margin: 10px 0;
-      font-size: 16px;
-    }
-    button {
-      padding: 10px 16px;
-      background-color: #2196F3;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .section-content {
-      max-width: 600px;
-      margin: 0 auto;
-    }
+    body { margin:0; font-family:Arial; background:#121212; color:#fff; text-align:center; }
+    .section { display:none; padding:20px; }
+    .section.active { display:block; }
+    .nav { position:fixed; bottom:0; left:0; right:0; display:flex; justify-content:space-around; background:#1f1f1f; padding:10px; }
+    .nav button { background:#007bff; color:#fff; border:none; padding:10px 15px; border-radius:8px; }
+    .user-info { display:flex; justify-content:center; align-items:center; margin-top:15px; }
+    .user-info img { border-radius:50%; width:50px; height:50px; margin-right:10px; }
+    .leaderboard { margin-left: 20px;}
+    #leaderboard-list li { list-style:none; padding:5px; border-bottom:1px solid #444; }
   </style>
 </head>
-<body>
-
-  <!-- Navigation -->
-  <nav>
-    <button onclick="showSection('home')">Home</button>
-    <button onclick="showSection('referral')">Referral</button>
-    <button onclick="showSection('balance')">Balance</button>
-  </nav>
-
-  <!-- Sections -->
-  <section id="home" class="active">
-    <div class="section-content">
-      <h2>Welcome to Your Referral Bot!</h2>
-      <p>Your Telegram Username: <span id="username">Loading...</span></p>
+<body><div id="home" class="section active">
+  <div class="user-info">
+    <img id="user-avatar" src="https://placehold.it/60x60">
+    <div>
+      <div id="user-name">Loading...</div>
+      <div id="user-username"></div>
     </div>
-  </section>
-
-  <section id="referral">
-    <div class="section-content">
-      <h2>Referral Link</h2>
-      <input type="text" id="referralLink" readonly />
-      <button onclick="copyLink()">📋 Copy Referral Link</button>
+    <div>
+      <button onclick="showSection('leaderboard');loadLeaderboard()">🏆 Leaderboard</button>
     </div>
-  </section>
+  </div>
+  <h3>⭐ Points: <span id="user-points">0</span></h3>
+</div><div id="earn" class="section">
+  <h3>Earn Points</h3>
+  <button onclick="addPoints(50)">+50 Points</button>
+</div><div id="referral" class="section">
+  <h3>Referral</h3>
+  <div>Invite your friends:</div>
+  <div id="invite-link" style="word-break:break-all;margin:10px 0;"></div>
+  <button onclick="copyInviteLink()">Copy Invite Link</button>
+</div><div id="balance" class="section">
+  <h3>💳 Your Balance</h3>
+  <p>Total Points: <span id="balance-points">0</span> ⭐</p>
+</div><div id="leaderboard" class="section">
+  <h3>🏆 Leaderboard</h3>
+  <ul id="leaderboard-list"></ul>
+</div><div class="nav">
+  <button onclick="showSection('home')">🏠 Home</button>
+  <button onclick="showSection('earn')">💰 Earn</button>
+  <button onclick="showSection('referral')">👥 Referral</button>
+  <button onclick="showSection('balance');updateBalance()">💳 Balance</button>
+</div><script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0g",
+    authDomain: "refer-bot-eb51d.firebaseapp.com",
+    projectId: "refer-bot-eb51d",
+    storageBucket: "refer-bot-eb51d.firebasestorage.app",
+    messagingSenderId: "859657197457",
+    appId: "1:859657197457:web:1e8df7b29536ac9d0aac30"
+  };
 
-  <section id="balance">
-    <div class="section-content">
-      <h2>Referral Count & Points</h2>
-      <p>Your Referral Count: <span id="referral-count">Loading...</span></p>
-      <p>Your Points: <span id="points">Loading...</span></p>
-    </div>
-  </section>
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const tg = window.Telegram.WebApp;
+  tg.ready();
 
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-    import {
-      getFirestore,
-      doc,
-      setDoc,
-      onSnapshot,
-      increment,
-      getDoc
-    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+  function showSection(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (id === "home") updatePoints();
+  }
 
-    // Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0",
-      authDomain: "refer-bot-eb51d.firebaseapp.com",
-      projectId: "refer-bot-eb51d"
-    };
+  async function addPoints(amount) {
+    const user = tg.initDataUnsafe?.user;
+    if (!user) return;
+    const userRef = db.collection("users").doc(user.id.toString());
+    await userRef.set({
+      points: firebase.firestore.FieldValue.increment(amount),
+      username: user.username || "no_username",
+      name: user.first_name
+    }, { merge: true });
+    updatePoints();
+    alert(`+${amount} points added!`);
+  }
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  async function updatePoints() {
+    const user = tg.initDataUnsafe?.user;
+    if (!user) return;
+    const doc = await db.collection("users").doc(user.id.toString()).get();
+    const data = doc.data();
+    const points = data?.points || 0;
+    document.getElementById("user-points").textContent = points;
+    document.getElementById("balance-points").textContent = points;
+  }
 
-    // Telegram WebApp Init
-    const tg = window.Telegram.WebApp;
-    tg.ready(); // let Telegram know you're ready
+  function updateBalance() {
+    document.getElementById("balance-points").textContent = document.getElementById("user-points").textContent;
+  }
 
-    const username = tg.initDataUnsafe?.user?.username || "guest";
-    document.getElementById("username").innerText = username;
-
-    // Referral link logic
-    const referralLink = `https://refer-bot-eb51d.web.app/?ref=${username}`;
-    document.getElementById("referralLink").value = referralLink;
-
-    // Firestore document reference
-    const userRef = doc(db, "referrals", username);
-
-    // Copy link function
-    window.copyLink = function () {
-      const input = document.getElementById("referralLink");
-      input.select();
-      input.setSelectionRange(0, 99999);
-      navigator.clipboard.writeText(input.value).then(() => {
-        alert("Referral link copied!");
-      });
-    };
-
-    // Update referral data on load and on change
-    async function updateReferralData() {
-      const snap = await getDoc(userRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        document.getElementById("referral-count").innerText = data.count || 0;
-        document.getElementById("points").innerText = data.points || 0;
-      } else {
-        await setDoc(userRef, { count: 0, points: 0 });
-        document.getElementById("referral-count").innerText = 0;
-        document.getElementById("points").innerText = 0;
-      }
-    }
-
-    // Real-time listener
-    onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        document.getElementById("referral-count").innerText = data.count || 0;
-        document.getElementById("points").innerText = data.points || 0;
-      }
+  async function loadLeaderboard() {
+    const snapshot = await db.collection("users").orderBy("points", "desc").limit(10).get();
+    let html = "";
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      html += `<li>@${d.username || doc.id} - ${d.points || 0} ⭐</li>`;
     });
+    document.getElementById("leaderboard-list").innerHTML = html;
+  }
 
-    // Increase referral (handle from Firebase Function or Firestore Rule externally)
-    async function increaseReferral(refUsername) {
-      const refDoc = doc(db, "referrals", refUsername);
-      await setDoc(refDoc, { count: increment(1), points: increment(100) }, { merge: true });
-    }
+  function copyInviteLink() {
+    const link = document.getElementById("invite-link").textContent;
+    navigator.clipboard.writeText(link).then(() => alert("✅ Invite Link Copied!"));
+  }
 
-    // If link has ?ref=username
+  function checkReferral() {
     const urlParams = new URLSearchParams(window.location.search);
-    const refUser = urlParams.get('ref');
-    if (refUser && refUser !== username) {
-      await increaseReferral(refUser);
-    }
-
-    // Page navigation
-    window.showSection = function (sectionId) {
-      document.querySelectorAll('section').forEach(section => {
-        section.classList.remove('active');
+    const referrerId = urlParams.get("start");
+    const user = tg.initDataUnsafe?.user;
+    if (referrerId && user && referrerId !== user.id.toString()) {
+      const userRef = db.collection("users").doc(user.id.toString());
+      userRef.get().then(docSnap => {
+        if (!docSnap.exists) {
+          db.collection("users").doc(referrerId).update({
+            points: firebase.firestore.FieldValue.increment(100)
+          });
+          userRef.set({ referred_by: referrerId, points: 0 }, { merge: true });
+        }
       });
-      document.getElementById(sectionId).classList.add('active');
-    };
+    }
+  }
 
-    // Initial load
-    updateReferralData();
-  </script>
-</body>
+  const user = tg.initDataUnsafe?.user;
+  if (user) {
+    document.getElementById('user-name').textContent = `Hello, ${user.first_name}`;
+    document.getElementById('user-username').textContent = `@${user.username || 'No Username'}`;
+    document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.it/60x60';
+    document.getElementById("invite-link").textContent = `https://t.me/YOUR_BOT_USERNAME?start=${user.id}`;
+  }
+
+  checkReferral();
+  updatePoints();
+</script></body>
 </html>
