@@ -3,109 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telegram Referral App</title>
+  <title>Referral App - Dark Theme</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <style>
     * {
-      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Arial, sans-serif;
     }
     
     body {
-      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+      background: #121212;
       color: #fff;
       min-height: 100vh;
       padding-bottom: 70px;
     }
     
     .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
+      max-width: 100%;
+      padding: 15px;
     }
     
-    header {
+    .header {
       text-align: center;
-      padding: 20px 0;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      padding: 15px 0;
+      border-bottom: 1px solid #333;
+      margin-bottom: 15px;
     }
     
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 10px;
-      background: linear-gradient(to right, #ff9966, #ff5e62);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    .header h1 {
+      font-size: 1.5rem;
+      color: #4CAF50;
+      margin-bottom: 5px;
+    }
+    
+    .header p {
+      color: #aaa;
+      font-size: 0.9rem;
     }
     
     .user-info {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 15px;
-      margin: 20px 0;
-    }
-    
-    .avatar {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: 3px solid #ff9966;
-      object-fit: cover;
+      justify-content: space-between;
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
     
     .user-details {
-      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
     
-    .username {
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: #ffd700;
+    .user-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 2px solid #4CAF50;
+      object-fit: cover;
     }
     
-    .user-id {
+    .user-text h2 {
+      font-size: 1.1rem;
+      margin-bottom: 3px;
+      color: #e0e0e0;
+    }
+    
+    .user-text p {
+      color: #aaa;
+      font-size: 0.85rem;
+    }
+    
+    .leaderboard-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 20px;
       font-size: 0.9rem;
-      opacity: 0.8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
     
     .points-display {
-      background: rgba(0, 0, 0, 0.6);
-      border-radius: 15px;
-      padding: 15px;
-      margin: 20px 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border: 1px solid #ff9966;
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      border: 1px solid #333;
     }
     
-    .points-label {
-      font-size: 1.2rem;
+    .points-display h3 {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+      color: #e0e0e0;
     }
     
     .points-value {
       font-size: 2rem;
       font-weight: bold;
-      color: #ffd700;
+      color: #4CAF50;
     }
     
     .section {
-      background: rgba(0, 0, 0, 0.6);
-      border-radius: 20px;
-      padding: 25px;
-      margin-bottom: 25px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 153, 102, 0.3);
       display: none;
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      border: 1px solid #333;
     }
     
     .section.active {
@@ -113,46 +131,38 @@
     }
     
     .section-title {
-      font-size: 1.8rem;
-      margin-bottom: 20px;
-      color: #ff9966;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      color: #4CAF50;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
     }
     
     .btn {
-      background: linear-gradient(to right, #ff9966, #ff5e62);
+      background: #4CAF50;
       color: white;
       border: none;
-      padding: 15px 25px;
-      border-radius: 50px;
-      font-size: 1.1rem;
-      font-weight: bold;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1rem;
       cursor: pointer;
-      transition: all 0.3s ease;
       width: 100%;
-      margin: 10px 0;
-      box-shadow: 0 4px 15px rgba(255, 94, 98, 0.4);
+      margin: 8px 0;
+      transition: background 0.3s;
     }
     
     .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 20px rgba(255, 94, 98, 0.6);
-    }
-    
-    .btn:active {
-      transform: translateY(1px);
+      background: #45a049;
     }
     
     .invite-link {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 15px;
+      background: #0a0a0a;
+      border-radius: 8px;
+      padding: 12px;
       margin: 15px 0;
       word-break: break-all;
       font-size: 0.9rem;
-      border: 1px dashed #ff9966;
+      border: 1px dashed #4CAF50;
     }
     
     .leaderboard-list {
@@ -162,65 +172,25 @@
     .leaderboard-item {
       display: flex;
       justify-content: space-between;
-      padding: 15px;
-      border-bottom: 1px solid rgba(255, 153, 102, 0.3);
-      transition: background 0.3s;
-    }
-    
-    .leaderboard-item:hover {
-      background: rgba(255, 153, 102, 0.1);
+      padding: 12px 10px;
+      border-bottom: 1px solid #333;
     }
     
     .leaderboard-position {
       font-weight: bold;
-      color: #ffd700;
-      min-width: 30px;
+      color: #4CAF50;
+      width: 30px;
     }
     
     .leaderboard-name {
       flex-grow: 1;
-      padding: 0 15px;
     }
     
     .leaderboard-points {
       font-weight: bold;
-      color: #ff9966;
-      min-width: 80px;
-    }
-    
-    .nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      background: rgba(0, 0, 0, 0.9);
-      padding: 10px;
-      border-top: 2px solid #ff9966;
-      z-index: 100;
-    }
-    
-    .nav-btn {
-      flex: 1;
-      background: none;
-      border: none;
-      color: #ccc;
-      padding: 12px;
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    
-    .nav-btn.active {
-      color: #ff9966;
-    }
-    
-    .nav-btn i {
-      font-size: 1.5rem;
-      margin-bottom: 5px;
+      color: #FFD700;
+      width: 80px;
+      text-align: right;
     }
     
     .status-message {
@@ -228,7 +198,7 @@
       margin: 10px 0;
       border-radius: 8px;
       text-align: center;
-      font-weight: bold;
+      font-size: 0.9rem;
     }
     
     .success {
@@ -243,111 +213,136 @@
       border: 1px solid #f44336;
     }
     
-    .loading {
-      text-align: center;
-      padding: 20px;
-      color: #ff9966;
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      background: #1a1a1a;
+      padding: 10px;
+      border-top: 1px solid #333;
+      z-index: 100;
     }
     
-    .stars {
-      color: #ffd700;
+    .nav-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: #aaa;
+      padding: 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .nav-btn.active {
+      color: #4CAF50;
+    }
+    
+    .nav-btn i {
       font-size: 1.2rem;
-      letter-spacing: 2px;
     }
     
     .referral-count {
       text-align: center;
-      margin-top: 15px;
-      font-size: 1.1rem;
-      color: #ff9966;
+      margin-top: 10px;
+      color: #aaa;
+      font-size: 0.9rem;
     }
     
     .highlight {
-      background: rgba(255, 215, 0, 0.2);
-      border-left: 3px solid #ffd700;
-    }
-    
-    @media (max-width: 600px) {
-      .container {
-        padding: 10px;
-      }
-      
-      .section {
-        padding: 15px;
-      }
-      
-      h1 {
-        font-size: 2rem;
-      }
-      
-      .points-value {
-        font-size: 1.8rem;
-      }
+      background: rgba(76, 175, 80, 0.1);
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>🌟 Referral Rewards</h1>
+    <div class="header">
+      <h1>Referral Rewards</h1>
       <p>Earn points and climb the leaderboard!</p>
-    </header>
+    </div>
     
     <div class="user-info">
-      <img id="user-avatar" class="avatar" src="https://ui-avatars.com/api/?name=User&background=1a2a6c&color=fff">
       <div class="user-details">
-        <div id="user-name" class="username">Loading...</div>
-        <div id="user-username" class="user-id">@username</div>
+        <img id="user-avatar" class="user-avatar" src="https://ui-avatars.com/api/?name=User&background=1a2a6c&color=fff">
+        <div class="user-text">
+          <h2 id="user-name">Loading...</h2>
+          <p id="user-username">@username</p>
+        </div>
       </div>
+      <button class="leaderboard-btn" onclick="showSection('leaderboard')">
+        <span>🏆</span> Leaderboard
+      </button>
     </div>
     
     <div class="points-display">
-      <div class="points-label">Your Points:</div>
-      <div id="user-points" class="points-value">0 <span class="stars">★</span></div>
+      <h3>⭐ Your Points</h3>
+      <div id="user-points" class="points-value">0</div>
     </div>
     
     <!-- Home Section -->
     <div id="home" class="section active">
-      <h2 class="section-title">🏠 Dashboard</h2>
+      <h3 class="section-title">🏠 Home</h3>
       <button class="btn" onclick="showSection('earn')">💰 Earn Points</button>
       <button class="btn" onclick="showSection('referral')">👥 Refer Friends</button>
-      <button class="btn" onclick="showSection('leaderboard')">📊 View Leaderboard</button>
+      <button class="btn" onclick="showSection('balance')">💳 Check Balance</button>
     </div>
     
     <!-- Earn Points Section -->
     <div id="earn" class="section">
-      <h2 class="section-title">💰 Earn Points</h2>
-      <p>Complete actions to earn points</p>
-      <button class="btn" onclick="addPoints(10)">Daily Check-in (+10 points)</button>
-      <button class="btn" onclick="addPoints(50)">Watch Tutorial (+50 points)</button>
-      <button class="btn" onclick="addPoints(100)">Complete Survey (+100 points)</button>
+      <h3 class="section-title">💰 Earn Points</h3>
+      <button class="btn" onclick="addPoints(10)">+10 Points</button>
+      <button class="btn" onclick="addPoints(50)">+50 Points</button>
+      <button class="btn" onclick="addPoints(100)">+100 Points</button>
     </div>
     
     <!-- Referral Section -->
     <div id="referral" class="section">
-      <h2 class="section-title">👥 Refer Friends</h2>
+      <h3 class="section-title">👥 Refer Friends</h3>
       <p>Share your referral link to earn 100 points per friend!</p>
       <div class="invite-link" id="invite-link">Generating your referral link...</div>
-      <button class="btn" onclick="copyInviteLink()">📋 Copy Link to Clipboard</button>
+      <button class="btn" onclick="copyInviteLink()">📋 Copy Invite Link</button>
       <div id="referral-status" class="status-message"></div>
-      <div id="referral-count" class="referral-count"></div>
+      <div id="referral-count" class="referral-count">You've referred 0 friends</div>
+    </div>
+    
+    <!-- Balance Section -->
+    <div id="balance" class="section">
+      <h3 class="section-title">💳 Your Balance</h3>
+      <div class="points-display" style="margin-top: 15px;">
+        <h3>Total Points</h3>
+        <div id="balance-points" class="points-value">0</div>
+      </div>
+      <p style="text-align: center; margin-top: 15px; color: #aaa;">Refer friends to earn more points!</p>
     </div>
     
     <!-- Leaderboard Section -->
     <div id="leaderboard" class="section">
-      <h2 class="section-title">📊 Leaderboard</h2>
+      <h3 class="section-title">🏆 Leaderboard</h3>
       <ul id="leaderboard-list" class="leaderboard-list">
-        <li class="loading">Loading leaderboard...</li>
+        <li class="status-message">Loading leaderboard...</li>
       </ul>
     </div>
   </div>
   
   <!-- Navigation -->
   <div class="nav">
-    <button class="nav-btn active" data-section="home">🏠 Home</button>
-    <button class="nav-btn" data-section="earn">💰 Earn</button>
-    <button class="nav-btn" data-section="referral">👥 Refer</button>
-    <button class="nav-btn" data-section="leaderboard">📊 Leaderboard</button>
+    <button class="nav-btn active" data-section="home">
+      <span>🏠</span> Home
+    </button>
+    <button class="nav-btn" data-section="earn">
+      <span>💰</span> Earn
+    </button>
+    <button class="nav-btn" data-section="referral">
+      <span>👥</span> Referral
+    </button>
+    <button class="nav-btn" data-section="balance">
+      <span>💳</span> Balance
+    </button>
   </div>
 
   <script>
@@ -365,12 +360,6 @@
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Enable offline persistence
-    db.enablePersistence()
-      .catch((err) => {
-        console.error("Offline persistence failed:", err);
-      });
-
     // Telegram WebApp initialization
     const tg = window.Telegram.WebApp;
     tg.ready();
@@ -386,6 +375,7 @@
     const userNameEl = document.getElementById('user-name');
     const userUsernameEl = document.getElementById('user-username');
     const userPointsEl = document.getElementById('user-points');
+    const balancePointsEl = document.getElementById('balance-points');
     const inviteLinkEl = document.getElementById('invite-link');
     const referralStatusEl = document.getElementById('referral-status');
     const referralCountEl = document.getElementById('referral-count');
@@ -410,7 +400,6 @@
     async function initializeUser() {
       currentUser = tg.initDataUnsafe?.user;
       if (!currentUser) {
-        console.log("No user data available");
         userNameEl.textContent = "Telegram User";
         return;
       }
@@ -420,6 +409,8 @@
       userUsernameEl.textContent = currentUser.username ? `@${currentUser.username}` : '';
       if (currentUser.photo_url) {
         userAvatarEl.src = currentUser.photo_url;
+      } else {
+        userAvatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.first_name || 'U')}&background=1a2a6c&color=fff`;
       }
       
       // Generate invite link
@@ -435,8 +426,6 @@
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        
-        console.log("User document initialized in Firestore");
       } catch (error) {
         console.error("Error initializing user document:", error);
       }
@@ -464,17 +453,14 @@
       if (sectionId === 'leaderboard') {
         loadLeaderboard();
       }
-      if (sectionId === 'referral') {
-        updateReferralCount();
+      if (sectionId === 'balance') {
+        balancePointsEl.textContent = points;
       }
     }
     
     // Add points to user
     async function addPoints(amount) {
-      if (!currentUser) {
-        alert("Please wait while we load your account information");
-        return;
-      }
+      if (!currentUser) return;
       
       try {
         const userId = currentUser.id.toString();
@@ -542,7 +528,7 @@
     
     // Load leaderboard
     async function loadLeaderboard() {
-      leaderboardListEl.innerHTML = '<li class="loading">Loading leaderboard...</li>';
+      leaderboardListEl.innerHTML = '<li class="status-message">Loading leaderboard...</li>';
       
       try {
         const snapshot = await db.collection('users')
@@ -561,20 +547,16 @@
             <li class="leaderboard-item ${isCurrentUser ? 'highlight' : ''}">
               <div class="leaderboard-position">${position}.</div>
               <div class="leaderboard-name">${user.name || 'Anonymous'}</div>
-              <div class="leaderboard-points">${user.points || 0} <span class="stars">★</span></div>
+              <div class="leaderboard-points">${user.points || 0} ★</div>
             </li>
           `;
           position++;
         });
         
-        if (html === '') {
-          html = '<li class="loading">No users found</li>';
-        }
-        
-        leaderboardListEl.innerHTML = html;
+        leaderboardListEl.innerHTML = html || '<li class="status-message">No users found</li>';
       } catch (error) {
         console.error("Error loading leaderboard:", error);
-        leaderboardListEl.innerHTML = '<li class="loading">Error loading leaderboard</li>';
+        leaderboardListEl.innerHTML = '<li class="status-message error">Error loading leaderboard</li>';
       }
     }
     
@@ -666,11 +648,6 @@
           // Update points and referral count
           updatePoints();
           updateReferralCount();
-          
-          // Update leaderboard if on that section
-          if (document.getElementById('leaderboard').classList.contains('active')) {
-            loadLeaderboard();
-          }
         }
       } catch (error) {
         console.error("Referral check error:", error);
