@@ -1,30 +1,101 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Refer Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Referral Mini App</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    input { width: 100%; padding: 8px; font-size: 16px; margin: 10px 0; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    nav {
+      display: flex;
+      justify-content: space-around;
+      background-color: #2196F3;
+      padding: 10px;
+      color: white;
+    }
+    nav button {
+      padding: 10px;
+      background-color: #f4f4f4;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #2196F3;
+    }
+    section {
+      padding: 20px;
+      display: none;
+    }
+    section.active {
+      display: block;
+    }
+    h2 {
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
     button {
-      padding: 10px 16px; font-size: 16px;
-      background-color: #2196F3; color: white; border: none;
-      border-radius: 6px; cursor: pointer;
+      padding: 10px 16px;
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .section-content {
+      max-width: 600px;
+      margin: 0 auto;
     }
   </style>
 </head>
 <body>
 
-  <h2>🔗 Your Referral Link</h2>
-  <input type="text" id="referralLink" readonly />
-  <button onclick="copyLink()">📋 Copy Referral Link</button>
+  <!-- Navigation Bar -->
+  <nav>
+    <button onclick="showSection('home')">Home</button>
+    <button onclick="showSection('referral')">Referral</button>
+    <button onclick="showSection('balance')">Balance</button>
+  </nav>
 
-  <h3 id="referral-count">Referral Count: Loading...</h3>
+  <!-- Home Section -->
+  <section id="home" class="active">
+    <div class="section-content">
+      <h2>Welcome to Your Referral Bot!</h2>
+      <p>Your Telegram Username: <span id="username">Loading...</span></p>
+    </div>
+  </section>
+
+  <!-- Referral Section -->
+  <section id="referral">
+    <div class="section-content">
+      <h2>Referral Link</h2>
+      <input type="text" id="referralLink" readonly />
+      <button onclick="copyLink()">Copy Referral Link</button>
+    </div>
+  </section>
+
+  <!-- Balance Section -->
+  <section id="balance">
+    <div class="section-content">
+      <h2>Referral Count & Points</h2>
+      <p>Your Referral Count: <span id="referral-count">Loading...</span></p>
+      <p>Your Points: <span id="points">Loading...</span></p>
+    </div>
+  </section>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
     import { getFirestore, doc, setDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
+    // Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0",
       authDomain: "refer-bot-eb51d.firebaseapp.com",
@@ -34,42 +105,61 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Async function to handle Firestore logic
-    async function handleReferral() {
-      const params = new URLSearchParams(window.location.search);
-      const refId = params.get("ref") || "default_user"; // Default to "default_user" if no ref param
-
-      // Create referral link
-      const referralLink = `https://refer-bot-eb51d.web.app/?ref=${refId}`;
-      document.getElementById("referralLink").value = referralLink;
-
-      // Reference to Firestore user document
-      const userRef = doc(db, "referrals", refId);
-
-      // Increment the referral count in Firestore
-      if (params.get("ref")) {
-        await setDoc(userRef, { count: increment(1) }, { merge: true });
-      }
-
-      // Listen for changes to Firestore and update the UI with the latest count
-      onSnapshot(userRef, (docSnap) => {
-        const count = docSnap.data()?.count || 0;
-        document.getElementById("referral-count").innerText = `Referral Count: ${count}`;
-      });
+    // Function to show the active section
+    function showSection(section) {
+      const sections = document.querySelectorAll('section');
+      sections.forEach(sec => sec.classList.remove('active'));
+      document.getElementById(section).classList.add('active');
     }
 
-    // Call the async function to handle referral
-    handleReferral();
+    // Fetch Telegram username (for now, it's hardcoded; can be fetched from API)
+    const username = window.Telegram.WebApp.initDataUnsafe.user.username;  // Replace with dynamic username if using Telegram API
+    document.getElementById("username").innerText = username;
 
-    // Function to copy the referral link
-    window.copyLink = function () {
+    // Referral section logic
+    const referralLink = `https://refer-bot-eb51d.web.app/?ref=${username}`;
+    document.getElementById("referralLink").value = referralLink;
+
+    // Copy referral link function
+    function copyLink() {
       const input = document.getElementById("referralLink");
       input.select();
-      input.setSelectionRange(0, 99999); // For mobile support
+      input.setSelectionRange(0, 99999);
       document.execCommand("copy");
       alert("Referral link copied: " + input.value);
-    };
-  </script>
+    }
 
+    // Balance Section logic (Referral Count + Points)
+    const userRef = doc(db, "referrals", username);
+    
+    // Update referral count and points
+    async function updateReferralData() {
+      const docSnap = await userRef.get();
+      const data = docSnap.exists() ? docSnap.data() : { count: 0, points: 0 };
+
+      const referralCount = data.count;
+      const points = data.points;
+
+      document.getElementById("referral-count").innerText = referralCount;
+      document.getElementById("points").innerText = points;
+
+      // If referral count changes, increase points by 100
+      if (referralCount > 0 && points === 0) {
+        await setDoc(userRef, { points: 100 }, { merge: true });
+      }
+    }
+
+    // Firestore listener to keep UI updated
+    onSnapshot(userRef, updateReferralData);
+
+    // Function to increment referral count
+    async function incrementReferral() {
+      await setDoc(userRef, { count: increment(1) }, { merge: true });
+    }
+
+    // Call updateReferralData on page load
+    updateReferralData();
+  </script>
+  
 </body>
 </html>
