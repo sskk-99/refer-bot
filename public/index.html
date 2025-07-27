@@ -17,6 +17,7 @@
     .user-info img { border-radius:50%; width:50px; height:50px; margin-right:10px; }
     .leaderboard { margin-left: 20px;}
     #leaderboard-list li { list-style:none; padding:5px; border-bottom:1px solid #444; }
+    .loading { color: #aaa; font-style: italic; }
   </style>
 </head>
 <body>
@@ -32,7 +33,7 @@
       <button onclick="showSection('leaderboard');loadLeaderboard()">🏆 Leaderboard</button>
     </div>
   </div>
-  <h3>⭐ Points: <span id="user-points">0</span></h3>
+  <h3>⭐ Points: <span id="user-points" class="loading">0</span></h3>
 </div>
 
 <div id="earn" class="section">
@@ -43,18 +44,21 @@
 <div id="referral" class="section">
   <h3>Referral</h3>
   <div>Invite your friends:</div>
-  <div id="invite-link" style="word-break:break-all;margin:10px 0;"></div>
+  <div id="invite-link" style="word-break:break-all;margin:10px 0;" class="loading">Generating link...</div>
   <button onclick="copyInviteLink()">Copy Invite Link</button>
+  <div id="referral-status" style="margin-top:10px;"></div>
 </div>
 
 <div id="balance" class="section">
   <h3>💳 Your Balance</h3>
-  <p>Total Points: <span id="balance-points">0</span> ⭐</p>
+  <p>Total Points: <span id="balance-points" class="loading">0</span> ⭐</p>
 </div>
 
 <div id="leaderboard" class="section">
   <h3>🏆 Leaderboard</h3>
-  <ul id="leaderboard-list"></ul>
+  <ul id="leaderboard-list">
+    <li class="loading">Loading leaderboard...</li>
+  </ul>
 </div>
 
 <div class="nav">
@@ -83,32 +87,29 @@
   let points = 0;
   const tg = window.Telegram.WebApp;
   tg.ready();
+  tg.expand();
 
   function showSection(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     if (id === "home") updatePoints();
+    if (id === "leaderboard") loadLeaderboard();
   }
 
   async function addPoints(amount) {
-    const userId = tg.initDataUnsafe?.user?.id?.toString() || "guest";
+    const userId = tg.initDataUnsafe?.user?.id?.toString();
+    if (!userId) {
+      alert("User not identified");
+      return;
+    }
+    
     try {
-      // Update points in Firestore
       const userRef = db.collection('users').doc(userId);
-      await db.runTransaction(async (transaction) => {
-        const doc = await transaction.get(userRef);
-        if (doc.exists) {
-          const currentPoints = doc.data().points || 0;
-          transaction.update(userRef, { points: currentPoints + amount });
-        } else {
-          transaction.set(userRef, { 
-            points: amount,
-            username: tg.initDataUnsafe?.user?.username || 'unknown',
-            name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
-            photo_url: tg.initDataUnsafe?.user?.photo_url || ''
-          });
-        }
+      await userRef.update({
+        points: firebase.firestore.FieldValue.increment(amount),
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
       });
+      
       updatePoints();
       alert(`+${amount} points added!`);
     } catch (error) {
@@ -118,25 +119,32 @@
   }
 
   async function updatePoints() {
-    const userId = tg.initDataUnsafe?.user?.id?.toString() || "guest";
+    const userId = tg.initDataUnsafe?.user?.id?.toString();
+    if (!userId) return;
+    
     try {
       const doc = await db.collection('users').doc(userId).get();
       if (doc.exists) {
         points = doc.data().points || 0;
         document.getElementById("user-points").textContent = points;
         document.getElementById("balance-points").textContent = points;
+        document.getElementById("user-points").classList.remove("loading");
+        document.getElementById("balance-points").classList.remove("loading");
       }
     } catch (e) {
-      console.error("Point Fetch Error", e);
+      console.error("Point update error:", e);
     }
   }
 
   function updateBalance() {
     document.getElementById("balance-points").textContent = points;
+    document.getElementById("balance-points").classList.remove("loading");
   }
 
   async function loadLeaderboard() {
     try {
+      document.getElementById("leaderboard-list").innerHTML = '<li class="loading">Loading...</li>';
+      
       const snapshot = await db.collection('users')
         .orderBy('points', 'desc')
         .limit(10)
@@ -146,9 +154,14 @@
       let rank = 1;
       snapshot.forEach(doc => {
         const user = doc.data();
-        html += `<li>${rank}. ${user.name || user.username || doc.id} - ${user.points} ⭐</li>`;
+        html += `<li>${rank}. ${user.name || user.username || 'Anonymous'} - ${user.points || 0} ⭐</li>`;
         rank++;
       });
+      
+      if (html === "") {
+        html = "<li>No users found</li>";
+      }
+      
       document.getElementById("leaderboard-list").innerHTML = html;
     } catch (error) {
       console.error("Error loading leaderboard:", error);
@@ -158,7 +171,62 @@
 
   function copyInviteLink() {
     const link = document.getElementById("invite-link").textContent;
-    navigator.clipboard.writeText(link).then(() => alert("✅ Invite Link Copied!"));
+    navigator.clipboard.writeText(link).then(() => {
+      alert("✅ Invite Link Copied!");
+    }).catch(err => {
+      console.error("Copy failed:", err);
+      alert("Failed to copy link");
+    });
+  }
+
+  async function processReferral(referrerId, newUserId) {
+    try {
+      // Check if referral already exists
+      const referralRef = db.collection('referrals').doc(`${referrerId}_${newUserId}`);
+      const referralDoc = await referralRef.get();
+      
+      if (referralDoc.exists) {
+        console.log("Referral already processed");
+        return false;
+      }
+      
+      // Create a batch for atomic operations
+      const batch = db.batch();
+      
+      // 1. Create referral record
+      batch.set(referralRef, {
+        referrerId: referrerId,
+        referredId: newUserId,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "completed"
+      });
+      
+      // 2. Add 100 points to referrer
+      const referrerRef = db.collection('users').doc(referrerId);
+      batch.set(referrerRef, {
+        points: firebase.firestore.FieldValue.increment(100),
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      
+      // 3. Add 50 points to new user
+      const newUserRef = db.collection('users').doc(newUserId);
+      batch.set(newUserRef, {
+        points: firebase.firestore.FieldValue.increment(50),
+        username: tg.initDataUnsafe?.user?.username || 'unknown',
+        name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
+        photo_url: tg.initDataUnsafe?.user?.photo_url || '',
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      
+      // Commit the batch
+      await batch.commit();
+      
+      console.log("Referral processed successfully");
+      return true;
+    } catch (error) {
+      console.error("Referral processing error:", error);
+      return false;
+    }
   }
 
   async function checkReferral() {
@@ -166,84 +234,73 @@
     const referrerId = urlParams.get("start");
     const newUserId = tg.initDataUnsafe?.user?.id?.toString();
     
-    if (referrerId && newUserId && referrerId !== newUserId) {
-      try {
-        // Check if this is the first time this user is being referred
-        const referralRef = db.collection('referrals').doc(`${referrerId}_${newUserId}`);
-        const referralDoc = await referralRef.get();
-        
-        if (!referralDoc.exists) {
-          // Record the referral
-          await referralRef.set({
-            referrerId: referrerId,
-            referredId: newUserId,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-          });
-          
-          // Add points to referrer
-          const referrerRef = db.collection('users').doc(referrerId);
-          await db.runTransaction(async (transaction) => {
-            const doc = await transaction.get(referrerRef);
-            if (doc.exists) {
-              const currentPoints = doc.data().points || 0;
-              transaction.update(referrerRef, { points: currentPoints + 100 });
-            } else {
-              transaction.set(referrerRef, { 
-                points: 100,
-                username: 'unknown',
-                name: 'Anonymous',
-                photo_url: ''
-              });
-            }
-          });
-          
-          // Add welcome points to new user
-          const newUserRef = db.collection('users').doc(newUserId);
-          await db.runTransaction(async (transaction) => {
-            const doc = await transaction.get(newUserRef);
-            if (doc.exists) {
-              const currentPoints = doc.data().points || 0;
-              transaction.update(newUserRef, { points: currentPoints + 50 });
-            } else {
-              transaction.set(newUserRef, { 
-                points: 50,
-                username: tg.initDataUnsafe?.user?.username || 'unknown',
-                name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
-                photo_url: tg.initDataUnsafe?.user?.photo_url || ''
-              });
-            }
-          });
-          
-          console.log("Referral successfully processed");
-          updatePoints();
-        }
-      } catch (error) {
-        console.error("Error processing referral:", error);
+    if (!referrerId || !newUserId || referrerId === newUserId) {
+      return;
+    }
+    
+    try {
+      const statusElement = document.getElementById("referral-status");
+      statusElement.textContent = "Checking referral...";
+      statusElement.style.color = "#aaa";
+      
+      const success = await processReferral(referrerId, newUserId);
+      
+      if (success) {
+        statusElement.textContent = "🎉 Referral bonus received! +50 points";
+        statusElement.style.color = "#4CAF50";
+        updatePoints();
+      } else {
+        statusElement.textContent = "Referral already processed";
+        statusElement.style.color = "#FF9800";
       }
+    } catch (error) {
+      console.error("Referral check error:", error);
+      document.getElementById("referral-status").textContent = "Error processing referral";
+      document.getElementById("referral-status").style.color = "#F44336";
     }
   }
 
   // Initialize user data
-  const user = tg.initDataUnsafe?.user;
-  if (user) {
+  async function initializeUser() {
+    const user = tg.initDataUnsafe?.user;
+    if (!user) return;
+    
     document.getElementById('user-name').textContent = `Hello, ${user.first_name}`;
     document.getElementById('user-username').textContent = `@${user.username || 'No Username'}`;
     document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.it/60x60';
-    document.getElementById("invite-link").textContent =
-      `https://t.me/${botUsername}?start=${user.id}`;
+    
+    const inviteLink = `https://t.me/${botUsername}?start=${user.id}`;
+    document.getElementById("invite-link").textContent = inviteLink;
+    document.getElementById("invite-link").classList.remove("loading");
+    
+    // Create/update user document
+    try {
+      await db.collection('users').doc(user.id.toString()).set({
+        username: user.username || 'unknown',
+        name: user.first_name || 'Anonymous',
+        photo_url: user.photo_url || '',
+        points: firebase.firestore.FieldValue.increment(0),
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
       
-    // Create user document if not exists
-    db.collection('users').doc(user.id.toString()).set({
-      username: user.username || 'unknown',
-      name: user.first_name || 'Anonymous',
-      photo_url: user.photo_url || '',
-      points: firebase.firestore.FieldValue.increment(0)
-    }, { merge: true });
+      console.log("User initialized in database");
+    } catch (error) {
+      console.error("User initialization error:", error);
+    }
   }
 
   // Initialize the app
-  checkReferral();
-  updatePoints();
+  document.addEventListener('DOMContentLoaded', async () => {
+    await initializeUser();
+    updatePoints();
+    
+    // Check for referrals after a short delay
+    setTimeout(checkReferral, 1000);
+    
+    // Show loading state
+    document.getElementById("user-points").classList.add("loading");
+    document.getElementById("balance-points").classList.add("loading");
+  });
 </script>
 
 </body>
