@@ -105,6 +105,11 @@
       margin-bottom: 25px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
       border: 1px solid rgba(255, 153, 102, 0.3);
+      display: none;
+    }
+    
+    .section.active {
+      display: block;
     }
     
     .section-title {
@@ -301,14 +306,16 @@
       <div id="user-points" class="points-value">0 <span class="stars">★</span></div>
     </div>
     
-    <div id="home" class="section">
+    <!-- Home Section -->
+    <div id="home" class="section active">
       <h2 class="section-title">🏠 Dashboard</h2>
       <button class="btn" onclick="showSection('earn')">💰 Earn Points</button>
       <button class="btn" onclick="showSection('referral')">👥 Refer Friends</button>
       <button class="btn" onclick="showSection('leaderboard')">📊 View Leaderboard</button>
     </div>
     
-    <div id="earn" class="section" style="display:none">
+    <!-- Earn Points Section -->
+    <div id="earn" class="section">
       <h2 class="section-title">💰 Earn Points</h2>
       <p>Complete actions to earn points</p>
       <button class="btn" onclick="addPoints(10)">Daily Check-in (+10 points)</button>
@@ -316,7 +323,8 @@
       <button class="btn" onclick="addPoints(100)">Complete Survey (+100 points)</button>
     </div>
     
-    <div id="referral" class="section" style="display:none">
+    <!-- Referral Section -->
+    <div id="referral" class="section">
       <h2 class="section-title">👥 Refer Friends</h2>
       <p>Share your referral link to earn 100 points per friend!</p>
       <div class="invite-link" id="invite-link">Generating your referral link...</div>
@@ -325,7 +333,8 @@
       <div id="referral-count" class="referral-count"></div>
     </div>
     
-    <div id="leaderboard" class="section" style="display:none">
+    <!-- Leaderboard Section -->
+    <div id="leaderboard" class="section">
       <h2 class="section-title">📊 Leaderboard</h2>
       <ul id="leaderboard-list" class="leaderboard-list">
         <li class="loading">Loading leaderboard...</li>
@@ -333,11 +342,12 @@
     </div>
   </div>
   
+  <!-- Navigation -->
   <div class="nav">
-    <button class="nav-btn active" onclick="showSection('home')"><span>🏠</span> Home</button>
-    <button class="nav-btn" onclick="showSection('earn')"><span>💰</span> Earn</button>
-    <button class="nav-btn" onclick="showSection('referral')"><span>👥</span> Refer</button>
-    <button class="nav-btn" onclick="showSection('leaderboard')"><span>📊</span> Leaderboard</button>
+    <button class="nav-btn active" data-section="home">🏠 Home</button>
+    <button class="nav-btn" data-section="earn">💰 Earn</button>
+    <button class="nav-btn" data-section="referral">👥 Refer</button>
+    <button class="nav-btn" data-section="leaderboard">📊 Leaderboard</button>
   </div>
 
   <script>
@@ -387,6 +397,13 @@
       checkReferral();
       updatePoints();
       updateReferralCount();
+      
+      // Add event listeners to navigation buttons
+      document.querySelectorAll('.nav-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          showSection(button.dataset.section);
+        });
+      });
     });
     
     // Initialize user data
@@ -429,26 +446,19 @@
     function showSection(sectionId) {
       // Hide all sections
       document.querySelectorAll('.section').forEach(section => {
-        section.style.display = 'none';
+        section.classList.remove('active');
       });
       
       // Show requested section
-      document.getElementById(sectionId).style.display = 'block';
+      document.getElementById(sectionId).classList.add('active');
       
       // Update navigation buttons
       document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('active');
+        if (btn.dataset.section === sectionId) {
+          btn.classList.add('active');
+        }
       });
-      
-      // Set active nav button
-      const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => 
-        btn.textContent.includes(sectionId.charAt(0).toUpperCase() || 
-        btn.textContent.includes('Home') && sectionId === 'home'
-      );
-      
-      if (activeBtn) {
-        activeBtn.classList.add('active');
-      }
       
       // Load data for specific sections
       if (sectionId === 'leaderboard') {
@@ -658,7 +668,7 @@
           updateReferralCount();
           
           // Update leaderboard if on that section
-          if (document.getElementById('leaderboard').style.display === 'block') {
+          if (document.getElementById('leaderboard').classList.contains('active')) {
             loadLeaderboard();
           }
         }
