@@ -1,179 +1,250 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Refer Bot Mini App</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <style>
-    body {
-      font-family: sans-serif;
-      margin: 20px;
-      text-align: center;
-    }
-    .nav {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 20px;
-    }
-    .nav button {
-      padding: 10px 20px;
-    }
-    .section {
-      display: none;
-    }
-    .active {
-      display: block;
-    }
-    img.avatar {
-      border-radius: 50%;
-      width: 80px;
-      height: 80px;
-    }
+    body { margin:0; font-family:Arial; background:#121212; color:#fff; text-align:center; }
+    .section { display:none; padding:20px; }
+    .section.active { display:block; }
+    .nav { position:fixed; bottom:0; left:0; right:0; display:flex; justify-content:space-around; background:#1f1f1f; padding:10px; }
+    .nav button { background:#007bff; color:#fff; border:none; padding:10px 15px; border-radius:8px; }
+    .user-info { display:flex; justify-content:center; align-items:center; margin-top:15px; }
+    .user-info img { border-radius:50%; width:50px; height:50px; margin-right:10px; }
+    .leaderboard { margin-left: 20px;}
+    #leaderboard-list li { list-style:none; padding:5px; border-bottom:1px solid #444; }
   </style>
 </head>
 <body>
-  <h1>Refer Bot 🧑‍🤝‍🧑</h1>
 
-  <!-- Sections -->
-  <div id="home" class="section active">
-    <h2>🏠 Home</h2>
-    <img id="user-pic" class="avatar" src="" alt="Avatar" />
-    <p id="username">Username: Loading...</p>
+<div id="home" class="section active">
+  <div class="user-info">
+    <img id="user-avatar" src="https://placehold.it/60x60">
+    <div>
+      <div id="user-name">Loading...</div>
+      <div id="user-username"></div>
+    </div>
+    <div>
+      <button onclick="showSection('leaderboard');loadLeaderboard()">🏆 Leaderboard</button>
+    </div>
   </div>
+  <h3>⭐ Points: <span id="user-points">0</span></h3>
+</div>
 
-  <div id="referral" class="section">
-    <h2>🔗 Your Referral Link</h2>
-    <input id="ref-link" type="text" style="width: 90%" readonly />
-    <button onclick="copyLink()">📋 Copy Referral Link</button>
-  </div>
+<div id="earn" class="section">
+  <h3>Earn Points</h3>
+  <button onclick="addPoints(50)">+50 Points</button>
+</div>
 
-  <div id="balance" class="section">
-    <h2>💰 Balance</h2>
-    <p>Referral Count: <span id="ref-count">Loading...</span></p>
-    <p>Total Points: <span id="points">Loading...</span></p>
-  </div>
+<div id="referral" class="section">
+  <h3>Referral</h3>
+  <div>Invite your friends:</div>
+  <div id="invite-link" style="word-break:break-all;margin:10px 0;"></div>
+  <button onclick="copyInviteLink()">Copy Invite Link</button>
+</div>
 
-  <!-- Navigation -->
-  <div class="nav">
-    <button onclick="showSection('home')">Home</button>
-    <button onclick="showSection('referral')">Referral</button>
-    <button onclick="showSection('balance')">Balance</button>
-  </div>
+<div id="balance" class="section">
+  <h3>💳 Your Balance</h3>
+  <p>Total Points: <span id="balance-points">0</span> ⭐</p>
+</div>
 
-  <!-- Telegram Mini App -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<div id="leaderboard" class="section">
+  <h3>🏆 Leaderboard</h3>
+  <ul id="leaderboard-list"></ul>
+</div>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+<div class="nav">
+  <button onclick="showSection('home')">🏠 Home</button>
+  <button onclick="showSection('earn')">💰 Earn</button>
+  <button onclick="showSection('referral')">👥 Referral</button>
+  <button onclick="showSection('balance');updateBalance()">💳 Balance</button>
+</div>
 
-  <script>
-    // Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0g",
-      authDomain: "refer-bot-eb51d.firebaseapp.com",
-      projectId: "refer-bot-eb51d",
-      storageBucket: "refer-bot-eb51d.firebasestorage.app",
-      messagingSenderId: "859657197457",
-      appId: "1:859657197457:web:1e8df7b29536ac9d0aac30",
-    };
+<script>
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0g",
+    authDomain: "refer-bot-eb51d.firebaseapp.com",
+    projectId: "refer-bot-eb51d",
+    storageBucket: "refer-bot-eb51d.appspot.com",
+    messagingSenderId: "859657197457",
+    appId: "1:859657197457:web:1e8df7b29536ac9d0aac30"
+  };
 
-    // Init Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+  // Initialize Firebase
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-    // Telegram Init
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    const user = tg.initDataUnsafe?.user || {};
-    const userId = user?.id?.toString() || "guest";
+  const botUsername = "refer_078_bot"; 
+  let points = 0;
+  const tg = window.Telegram.WebApp;
+  tg.ready();
 
-    // DOM Elements
-    const usernameEl = document.getElementById("username");
-    const userPicEl = document.getElementById("user-pic");
-    const refLinkEl = document.getElementById("ref-link");
-    const refCountEl = document.getElementById("ref-count");
-    const pointsEl = document.getElementById("points");
+  function showSection(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (id === "home") updatePoints();
+  }
 
-    // Show Sections
-    function showSection(id) {
-      document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
-      document.getElementById(id).classList.add("active");
+  async function addPoints(amount) {
+    const userId = tg.initDataUnsafe?.user?.id?.toString() || "guest";
+    try {
+      // Update points in Firestore
+      const userRef = db.collection('users').doc(userId);
+      await db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(userRef);
+        if (doc.exists) {
+          const currentPoints = doc.data().points || 0;
+          transaction.update(userRef, { points: currentPoints + amount });
+        } else {
+          transaction.set(userRef, { 
+            points: amount,
+            username: tg.initDataUnsafe?.user?.username || 'unknown',
+            name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
+            photo_url: tg.initDataUnsafe?.user?.photo_url || ''
+          });
+        }
+      });
+      updatePoints();
+      alert(`+${amount} points added!`);
+    } catch (error) {
+      console.error("Error adding points:", error);
+      alert("Error adding points. Please try again.");
     }
+  }
 
-    // Copy Link
-    function copyLink() {
-      refLinkEl.select();
-      document.execCommand("copy");
-      alert("Referral link copied!");
-    }
-
-    // Update Firebase User
-    async function updateUserInfo() {
-      const userRef = db.collection("users").doc(userId);
-      const doc = await userRef.get();
-      if (!doc.exists) {
-        await userRef.set({
-          username: user.username || "",
-          first_name: user.first_name || "",
-          photo_url: user.photo_url || "",
-          points: 0,
-          referrals: [],
-        });
-      } else {
-        await userRef.set({
-          username: user.username || "",
-          first_name: user.first_name || "",
-          photo_url: user.photo_url || "",
-        }, { merge: true });
-      }
-    }
-
-    // Load Balance
-    async function loadBalance() {
-      const doc = await db.collection("users").doc(userId).get();
+  async function updatePoints() {
+    const userId = tg.initDataUnsafe?.user?.id?.toString() || "guest";
+    try {
+      const doc = await db.collection('users').doc(userId).get();
       if (doc.exists) {
-        const data = doc.data();
-        pointsEl.textContent = data.points || 0;
-        refCountEl.textContent = data.referrals?.length || 0;
+        points = doc.data().points || 0;
+        document.getElementById("user-points").textContent = points;
+        document.getElementById("balance-points").textContent = points;
+      }
+    } catch (e) {
+      console.error("Point Fetch Error", e);
+    }
+  }
+
+  function updateBalance() {
+    document.getElementById("balance-points").textContent = points;
+  }
+
+  async function loadLeaderboard() {
+    try {
+      const snapshot = await db.collection('users')
+        .orderBy('points', 'desc')
+        .limit(10)
+        .get();
+      
+      let html = "";
+      let rank = 1;
+      snapshot.forEach(doc => {
+        const user = doc.data();
+        html += `<li>${rank}. ${user.name || user.username || doc.id} - ${user.points} ⭐</li>`;
+        rank++;
+      });
+      document.getElementById("leaderboard-list").innerHTML = html;
+    } catch (error) {
+      console.error("Error loading leaderboard:", error);
+      document.getElementById("leaderboard-list").innerHTML = "<li>Error loading leaderboard</li>";
+    }
+  }
+
+  function copyInviteLink() {
+    const link = document.getElementById("invite-link").textContent;
+    navigator.clipboard.writeText(link).then(() => alert("✅ Invite Link Copied!"));
+  }
+
+  async function checkReferral() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const referrerId = urlParams.get("start");
+    const newUserId = tg.initDataUnsafe?.user?.id?.toString();
+    
+    if (referrerId && newUserId && referrerId !== newUserId) {
+      try {
+        // Check if this is the first time this user is being referred
+        const referralRef = db.collection('referrals').doc(`${referrerId}_${newUserId}`);
+        const referralDoc = await referralRef.get();
+        
+        if (!referralDoc.exists) {
+          // Record the referral
+          await referralRef.set({
+            referrerId: referrerId,
+            referredId: newUserId,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          
+          // Add points to referrer
+          const referrerRef = db.collection('users').doc(referrerId);
+          await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(referrerRef);
+            if (doc.exists) {
+              const currentPoints = doc.data().points || 0;
+              transaction.update(referrerRef, { points: currentPoints + 100 });
+            } else {
+              transaction.set(referrerRef, { 
+                points: 100,
+                username: 'unknown',
+                name: 'Anonymous',
+                photo_url: ''
+              });
+            }
+          });
+          
+          // Add welcome points to new user
+          const newUserRef = db.collection('users').doc(newUserId);
+          await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(newUserRef);
+            if (doc.exists) {
+              const currentPoints = doc.data().points || 0;
+              transaction.update(newUserRef, { points: currentPoints + 50 });
+            } else {
+              transaction.set(newUserRef, { 
+                points: 50,
+                username: tg.initDataUnsafe?.user?.username || 'unknown',
+                name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
+                photo_url: tg.initDataUnsafe?.user?.photo_url || ''
+              });
+            }
+          });
+          
+          console.log("Referral successfully processed");
+          updatePoints();
+        }
+      } catch (error) {
+        console.error("Error processing referral:", error);
       }
     }
+  }
 
-    // Update UI
-    function updateUI() {
-      usernameEl.textContent = `Username: @${user?.username || "Guest"}`;
-      userPicEl.src = user?.photo_url || "";
-      refLinkEl.value = `https://t.me/Refer_078_bot?start=${userId}`;
-    }
+  // Initialize user data
+  const user = tg.initDataUnsafe?.user;
+  if (user) {
+    document.getElementById('user-name').textContent = `Hello, ${user.first_name}`;
+    document.getElementById('user-username').textContent = `@${user.username || 'No Username'}`;
+    document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.it/60x60';
+    document.getElementById("invite-link").textContent =
+      `https://t.me/${botUsername}?start=${user.id}`;
+      
+    // Create user document if not exists
+    db.collection('users').doc(user.id.toString()).set({
+      username: user.username || 'unknown',
+      name: user.first_name || 'Anonymous',
+      photo_url: user.photo_url || '',
+      points: firebase.firestore.FieldValue.increment(0)
+    }, { merge: true });
+  }
 
-    // Referral Logic
-    async function handleReferral() {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get("start");
-      if (ref && ref !== userId) {
-        const refUserRef = db.collection("users").doc(ref);
-        await db.runTransaction(async (t) => {
-          const refDoc = await t.get(refUserRef);
-          if (!refDoc.exists) return;
-          const data = refDoc.data();
-          const refs = data.referrals || [];
-          if (!refs.includes(userId)) {
-            refs.push(userId);
-            t.update(refUserRef, {
-              referrals: refs,
-              points: (data.points || 0) + 100
-            });
-          }
-        });
-      }
-    }
+  // Initialize the app
+  checkReferral();
+  updatePoints();
+</script>
 
-    // Run all
-    (async () => {
-      await updateUserInfo();
-      await handleReferral();
-      updateUI();
-      await loadBalance();
-    })();
-  </script>
 </body>
 </html>
