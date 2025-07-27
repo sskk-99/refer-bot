@@ -1,7 +1,8 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Telegram Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js"></script>
@@ -12,57 +13,71 @@
     .section.active { display:block; }
     .nav { position:fixed; bottom:0; left:0; right:0; display:flex; justify-content:space-around; background:#1f1f1f; padding:10px; }
     .nav button { background:#007bff; color:#fff; border:none; padding:10px 15px; border-radius:8px; }
-    .user-info { display:flex; justify-content:center; align-items:center; margin-top:15px; }
-    .user-info img { border-radius:50%; width:50px; height:50px; margin-right:10px; }
-    .leaderboard { margin-left: 20px;}
+    .user-info { display:flex; justify-content:center; align-items:center; margin-top:15px; gap:10px; }
+    .user-info img { border-radius:50%; width:50px; height:50px; }
     #leaderboard-list li { list-style:none; padding:5px; border-bottom:1px solid #444; }
   </style>
 </head>
-<body><div id="home" class="section active">
+<body>
+
+<!-- Home Section -->
+<div id="home" class="section active">
   <div class="user-info">
-    <img id="user-avatar" src="https://placehold.it/60x60">
+    <img id="user-avatar" src="https://placehold.it/60x60" />
     <div>
       <div id="user-name">Loading...</div>
       <div id="user-username"></div>
     </div>
-    <div>
-      <button onclick="showSection('leaderboard');loadLeaderboard()">🏆 Leaderboard</button>
-    </div>
   </div>
   <h3>⭐ Points: <span id="user-points">0</span></h3>
-</div><div id="earn" class="section">
-  <h3>Earn Points</h3>
-  <button onclick="addPoints(50)">+50 Points</button>
-</div><div id="referral" class="section">
-  <h3>Referral</h3>
-  <div>Invite your friends:</div>
-  <div id="invite-link" style="word-break:break-all;margin:10px 0;"></div>
-  <button onclick="copyInviteLink()">Copy Invite Link</button>
-</div><div id="balance" class="section">
+  <button onclick="showSection('leaderboard');loadLeaderboard()">🏆 Leaderboard</button>
+</div>
+
+<!-- Referral Section -->
+<div id="referral" class="section">
+  <h3>🔗 Your Referral Link</h3>
+  <div id="invite-link" style="word-break: break-all; margin: 10px 0;"></div>
+  <button onclick="copyInviteLink()">📋 Copy Referral Link</button>
+</div>
+
+<!-- Balance Section -->
+<div id="balance" class="section">
   <h3>💳 Your Balance</h3>
   <p>Total Points: <span id="balance-points">0</span> ⭐</p>
-</div><div id="leaderboard" class="section">
+</div>
+
+<!-- Leaderboard Section -->
+<div id="leaderboard" class="section">
   <h3>🏆 Leaderboard</h3>
   <ul id="leaderboard-list"></ul>
-</div><div class="nav">
+</div>
+
+<!-- Navigation Buttons -->
+<div class="nav">
   <button onclick="showSection('home')">🏠 Home</button>
-  <button onclick="showSection('earn')">💰 Earn</button>
   <button onclick="showSection('referral')">👥 Referral</button>
   <button onclick="showSection('balance');updateBalance()">💳 Balance</button>
-</div><script>
+</div>
+
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0g",
     authDomain: "refer-bot-eb51d.firebaseapp.com",
     projectId: "refer-bot-eb51d",
-    storageBucket: "refer-bot-eb51d.firebasestorage.app",
+    storageBucket: "refer-bot-eb51d.appspot.com",
     messagingSenderId: "859657197457",
     appId: "1:859657197457:web:1e8df7b29536ac9d0aac30"
   };
 
+  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+
+  // Telegram WebApp
   const tg = window.Telegram.WebApp;
   tg.ready();
+
+  const user = tg.initDataUnsafe?.user;
 
   function showSection(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -70,21 +85,7 @@
     if (id === "home") updatePoints();
   }
 
-  async function addPoints(amount) {
-    const user = tg.initDataUnsafe?.user;
-    if (!user) return;
-    const userRef = db.collection("users").doc(user.id.toString());
-    await userRef.set({
-      points: firebase.firestore.FieldValue.increment(amount),
-      username: user.username || "no_username",
-      name: user.first_name
-    }, { merge: true });
-    updatePoints();
-    alert(`+${amount} points added!`);
-  }
-
   async function updatePoints() {
-    const user = tg.initDataUnsafe?.user;
     if (!user) return;
     const doc = await db.collection("users").doc(user.id.toString()).get();
     const data = doc.data();
@@ -97,6 +98,11 @@
     document.getElementById("balance-points").textContent = document.getElementById("user-points").textContent;
   }
 
+  function copyInviteLink() {
+    const link = document.getElementById("invite-link").textContent;
+    navigator.clipboard.writeText(link).then(() => alert("✅ Invite Link Copied!"));
+  }
+
   async function loadLeaderboard() {
     const snapshot = await db.collection("users").orderBy("points", "desc").limit(10).get();
     let html = "";
@@ -107,37 +113,31 @@
     document.getElementById("leaderboard-list").innerHTML = html;
   }
 
-  function copyInviteLink() {
-    const link = document.getElementById("invite-link").textContent;
-    navigator.clipboard.writeText(link).then(() => alert("✅ Invite Link Copied!"));
-  }
-
-  function checkReferral() {
+  async function checkReferral() {
     const urlParams = new URLSearchParams(window.location.search);
     const referrerId = urlParams.get("start");
-    const user = tg.initDataUnsafe?.user;
     if (referrerId && user && referrerId !== user.id.toString()) {
       const userRef = db.collection("users").doc(user.id.toString());
-      userRef.get().then(docSnap => {
-        if (!docSnap.exists) {
-          db.collection("users").doc(referrerId).update({
-            points: firebase.firestore.FieldValue.increment(100)
-          });
-          userRef.set({ referred_by: referrerId, points: 0 }, { merge: true });
-        }
-      });
+      const exists = await userRef.get();
+      if (!exists.exists) {
+        await db.collection("users").doc(referrerId).update({
+          points: firebase.firestore.FieldValue.increment(100)
+        });
+        await userRef.set({ referred_by: referrerId, points: 0 }, { merge: true });
+      }
     }
   }
 
-  const user = tg.initDataUnsafe?.user;
+  // Set user info on UI
   if (user) {
     document.getElementById('user-name').textContent = `Hello, ${user.first_name}`;
     document.getElementById('user-username').textContent = `@${user.username || 'No Username'}`;
     document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.it/60x60';
-    document.getElementById("invite-link").textContent = `https://t.me/YOUR_BOT_USERNAME?start=${user.id}`;
+    document.getElementById("invite-link").textContent = `https://t.me/refer_078_bot?start=${user.id}`;
   }
 
   checkReferral();
   updatePoints();
-</script></body>
+</script>
+</body>
 </html>
