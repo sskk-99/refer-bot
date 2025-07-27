@@ -1,11 +1,64 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Refer Bot</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input { width: 100%; padding: 8px; font-size: 16px; margin: 10px 0; }
+    button {
+      padding: 10px 16px; font-size: 16px;
+      background-color: #2196F3; color: white; border: none;
+      border-radius: 6px; cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <h1>Welcome to Refer Bot!</h1>
-  <p>This is the home page.</p>
+
+  <h2>🔗 Your Referral Link</h2>
+  <input type="text" id="referralLink" readonly />
+  <button onclick="copyLink()">📋 Copy Referral Link</button>
+
+  <h3 id="referral-count">Referral Count: Loading...</h3>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0",
+      authDomain: "refer-bot-eb51d.firebaseapp.com",
+      projectId: "refer-bot-eb51d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const refId = params.get("ref") || "default_user";
+
+    const referralLink = `https://refer-bot-eb51d.web.app/?ref=${refId}`;
+    document.getElementById("referralLink").value = referralLink;
+
+    const userRef = doc(db, "referrals", refId);
+
+    if (params.get("ref")) {
+      await setDoc(userRef, { count: increment(1) }, { merge: true });
+    }
+
+    onSnapshot(userRef, (docSnap) => {
+      const count = docSnap.data()?.count || 0;
+      document.getElementById("referral-count").innerText = `Referral Count: ${count}`;
+    });
+
+    window.copyLink = function () {
+      const input = document.getElementById("referralLink");
+      input.select();
+      input.setSelectionRange(0, 99999);
+      document.execCommand("copy");
+      alert("Referral link copied: " + input.value);
+    };
+  </script>
+
 </body>
 </html>
