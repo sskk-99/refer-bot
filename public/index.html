@@ -21,6 +21,7 @@
     .success { color: #4CAF50; }
     .warning { color: #FF9800; }
     .error { color: #F44336; }
+    .points-display { font-size: 1.2em; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -36,7 +37,7 @@
       <button onclick="showSection('leaderboard');loadLeaderboard()">🏆 Leaderboard</button>
     </div>
   </div>
-  <h3>⭐ Points: <span id="user-points" class="loading">0</span></h3>
+  <h3>⭐ Points: <span id="user-points" class="loading points-display">0</span></h3>
 </div>
 
 <div id="earn" class="section">
@@ -50,11 +51,12 @@
   <div id="invite-link" style="word-break:break-all;margin:10px 0;" class="loading">Generating link...</div>
   <button onclick="copyInviteLink()">Copy Invite Link</button>
   <div id="referral-status" style="margin-top:10px;"></div>
+  <div id="referral-count" style="margin-top:5px;font-size:0.9em;"></div>
 </div>
 
 <div id="balance" class="section">
   <h3>💳 Your Balance</h3>
-  <p>Total Points: <span id="balance-points" class="loading">0</span> ⭐</p>
+  <p>Total Points: <span id="balance-points" class="loading points-display">0</span> ⭐</p>
 </div>
 
 <div id="leaderboard" class="section">
@@ -86,6 +88,12 @@
   const app = firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
+  // Enable offline persistence
+  db.enablePersistence()
+    .catch((err) => {
+      console.error("Offline persistence failed:", err);
+    });
+
   const botUsername = "refer_078_bot"; 
   let points = 0;
   const tg = window.Telegram.WebApp;
@@ -94,7 +102,7 @@
 
   // Debugging function
   function debugLog(message, data = null) {
-    console.log(`[DEBUG] ${message}`, data);
+    console.log(`[${new Date().toISOString()}] ${message}`, data);
   }
 
   function showSection(id) {
@@ -102,6 +110,7 @@
     document.getElementById(id).classList.add('active');
     if (id === "home") updatePoints();
     if (id === "leaderboard") loadLeaderboard();
+    if (id === "referral") updateReferralCount();
   }
 
   async function addPoints(amount) {
@@ -141,6 +150,10 @@
         document.getElementById("user-points").classList.remove("loading");
         document.getElementById("balance-points").classList.remove("loading");
         debugLog("Points updated", {points});
+      } else {
+        // Create user document if it doesn't exist
+        await initializeUserDocument(userId);
+        updatePoints(); // Try again
       }
     } catch (e) {
       console.error("Point update error:", e);
@@ -166,7 +179,11 @@
       let rank = 1;
       snapshot.forEach(doc => {
         const user = doc.data();
-        html += `<li>${rank}. ${user.name || user.username || 'Anonymous'} - ${user.points || 0} ⭐</li>`;
+        const displayName = user.name || user.username || 'Anonymous';
+        const userPoints = user.points || 0;
+        const isCurrentUser = doc.id === tg.initDataUnsafe?.user?.id?.toString();
+        const userClass = isCurrentUser ? "success" : "";
+        html += `<li class="${userClass}">${rank}. ${displayName} - ${userPoints} ⭐</li>`;
         rank++;
       });
       
@@ -190,6 +207,22 @@
       console.error("Copy failed:", err);
       alert("Failed to copy link");
     });
+  }
+
+  async function updateReferralCount() {
+    const userId = tg.initDataUnsafe?.user?.id?.toString();
+    if (!userId) return;
+    
+    try {
+      const snapshot = await db.collection('referrals')
+        .where('referrerId', '==', userId)
+        .get();
+      
+      const count = snapshot.size;
+      document.getElementById("referral-count").textContent = `You've referred ${count} friends`;
+    } catch (error) {
+      console.error("Error getting referral count:", error);
+    }
   }
 
   async function processReferral(referrerId, newUserId) {
@@ -223,21 +256,22 @@
         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
       
-      // 3. Add 50 points to new user
+      // 3. Add 50 points to new user (and create document if doesn't exist)
       const newUserRef = db.collection('users').doc(newUserId);
       batch.set(newUserRef, {
         points: firebase.firestore.FieldValue.increment(50),
         username: tg.initDataUnsafe?.user?.username || 'unknown',
         name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
         photo_url: tg.initDataUnsafe?.user?.photo_url || '',
-        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
       
       // Commit the batch
       await batch.commit();
       
       debugLog("Referral processed successfully");
-      return { success: true, message: "Referral bonus received! +50 points" };
+      return { success: true, message: "🎉 Referral bonus received! +50 points" };
     } catch (error) {
       console.error("Referral processing error:", error);
       return { success: false, message: "Error processing referral" };
@@ -266,8 +300,10 @@
       statusElement.className = result.success ? "success" : "warning";
       
       if (result.success) {
-        // Force update points after successful referral
-        setTimeout(updatePoints, 1500);
+        // Update all relevant displays
+        updatePoints();
+        updateReferralCount();
+        loadLeaderboard();
       }
     } catch (error) {
       console.error("Referral check error:", error);
@@ -276,15 +312,32 @@
     }
   }
 
-  // Initialize user data
-  async function initializeUser() {
+  async function initializeUserDocument(userId) {
     const user = tg.initDataUnsafe?.user;
-    if (!user) {
-      debugLog("No user data found");
-      return;
-    }
+    if (!user) return;
     
-    debugLog("Initializing user", user);
+    try {
+      await db.collection('users').doc(userId).set({
+        username: user.username || 'unknown',
+        name: user.first_name || 'Anonymous',
+        photo_url: user.photo_url || '',
+        points: 0,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      
+      debugLog("User document initialized", {userId});
+    } catch (error) {
+      console.error("Error initializing user document:", error);
+    }
+  }
+
+  // Initialize user interface
+  function initializeUserInterface() {
+    const user = tg.initDataUnsafe?.user;
+    if (!user) return;
+    
+    debugLog("Initializing UI for user", user);
     document.getElementById('user-name').textContent = `Hello, ${user.first_name}`;
     document.getElementById('user-username').textContent = `@${user.username || 'No Username'}`;
     document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.it/60x60';
@@ -292,35 +345,27 @@
     const inviteLink = `https://t.me/${botUsername}?start=${user.id}`;
     document.getElementById("invite-link").textContent = inviteLink;
     document.getElementById("invite-link").classList.remove("loading");
-    
-    // Create/update user document
-    try {
-      await db.collection('users').doc(user.id.toString()).set({
-        username: user.username || 'unknown',
-        name: user.first_name || 'Anonymous',
-        photo_url: user.photo_url || '',
-        points: firebase.firestore.FieldValue.increment(0),
-        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      
-      debugLog("User initialized in database");
-    } catch (error) {
-      console.error("User initialization error:", error);
-    }
   }
 
   // Initialize the app
   document.addEventListener('DOMContentLoaded', async () => {
     debugLog("App initialized");
-    await initializeUser();
+    
+    // Initialize UI first for immediate feedback
+    initializeUserInterface();
+    
+    // Initialize user document in Firestore
+    const userId = tg.initDataUnsafe?.user?.id?.toString();
+    if (userId) {
+      await initializeUserDocument(userId);
+    }
+    
+    // Update all displays
     updatePoints();
+    updateReferralCount();
     
     // Check for referrals after a short delay
     setTimeout(checkReferral, 1500);
-    
-    // Show loading state
-    document.getElementById("user-points").classList.add("loading");
-    document.getElementById("balance-points").classList.add("loading");
   });
 </script>
 
