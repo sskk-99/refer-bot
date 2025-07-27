@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Referral Mini App</title>
   <style>
     body {
@@ -58,14 +58,14 @@
 </head>
 <body>
 
-  <!-- Navigation Bar -->
+  <!-- Navigation -->
   <nav>
     <button onclick="showSection('home')">Home</button>
     <button onclick="showSection('referral')">Referral</button>
     <button onclick="showSection('balance')">Balance</button>
   </nav>
 
-  <!-- Home Section -->
+  <!-- Sections -->
   <section id="home" class="active">
     <div class="section-content">
       <h2>Welcome to Your Referral Bot!</h2>
@@ -73,16 +73,14 @@
     </div>
   </section>
 
-  <!-- Referral Section -->
   <section id="referral">
     <div class="section-content">
       <h2>Referral Link</h2>
       <input type="text" id="referralLink" readonly />
-      <button onclick="copyLink()">Copy Referral Link</button>
+      <button onclick="copyLink()">📋 Copy Referral Link</button>
     </div>
   </section>
 
-  <!-- Balance Section -->
   <section id="balance">
     <div class="section-content">
       <h2>Referral Count & Points</h2>
@@ -91,11 +89,19 @@
     </div>
   </section>
 
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      onSnapshot,
+      increment,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
-    // Firebase Configuration
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyBlHEPK_acdr0K82KBlcmozUUHgze-Zi0",
       authDomain: "refer-bot-eb51d.firebaseapp.com",
@@ -105,61 +111,76 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Function to show the active section
-    function showSection(section) {
-      const sections = document.querySelectorAll('section');
-      sections.forEach(sec => sec.classList.remove('active'));
-      document.getElementById(section).classList.add('active');
-    }
+    // Telegram WebApp Init
+    const tg = window.Telegram.WebApp;
+    tg.ready(); // let Telegram know you're ready
 
-    // Fetch Telegram username (for now, it's hardcoded; can be fetched from API)
-    const username = window.Telegram.WebApp.initDataUnsafe.user.username;  // Replace with dynamic username if using Telegram API
+    const username = tg.initDataUnsafe?.user?.username || "guest";
     document.getElementById("username").innerText = username;
 
-    // Referral section logic
+    // Referral link logic
     const referralLink = `https://refer-bot-eb51d.web.app/?ref=${username}`;
     document.getElementById("referralLink").value = referralLink;
 
-    // Copy referral link function
-    function copyLink() {
+    // Firestore document reference
+    const userRef = doc(db, "referrals", username);
+
+    // Copy link function
+    window.copyLink = function () {
       const input = document.getElementById("referralLink");
       input.select();
       input.setSelectionRange(0, 99999);
-      document.execCommand("copy");
-      alert("Referral link copied: " + input.value);
-    }
+      navigator.clipboard.writeText(input.value).then(() => {
+        alert("Referral link copied!");
+      });
+    };
 
-    // Balance Section logic (Referral Count + Points)
-    const userRef = doc(db, "referrals", username);
-    
-    // Update referral count and points
+    // Update referral data on load and on change
     async function updateReferralData() {
-      const docSnap = await userRef.get();
-      const data = docSnap.exists() ? docSnap.data() : { count: 0, points: 0 };
-
-      const referralCount = data.count;
-      const points = data.points;
-
-      document.getElementById("referral-count").innerText = referralCount;
-      document.getElementById("points").innerText = points;
-
-      // If referral count changes, increase points by 100
-      if (referralCount > 0 && points === 0) {
-        await setDoc(userRef, { points: 100 }, { merge: true });
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        document.getElementById("referral-count").innerText = data.count || 0;
+        document.getElementById("points").innerText = data.points || 0;
+      } else {
+        await setDoc(userRef, { count: 0, points: 0 });
+        document.getElementById("referral-count").innerText = 0;
+        document.getElementById("points").innerText = 0;
       }
     }
 
-    // Firestore listener to keep UI updated
-    onSnapshot(userRef, updateReferralData);
+    // Real-time listener
+    onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        document.getElementById("referral-count").innerText = data.count || 0;
+        document.getElementById("points").innerText = data.points || 0;
+      }
+    });
 
-    // Function to increment referral count
-    async function incrementReferral() {
-      await setDoc(userRef, { count: increment(1) }, { merge: true });
+    // Increase referral (handle from Firebase Function or Firestore Rule externally)
+    async function increaseReferral(refUsername) {
+      const refDoc = doc(db, "referrals", refUsername);
+      await setDoc(refDoc, { count: increment(1), points: increment(100) }, { merge: true });
     }
 
-    // Call updateReferralData on page load
+    // If link has ?ref=username
+    const urlParams = new URLSearchParams(window.location.search);
+    const refUser = urlParams.get('ref');
+    if (refUser && refUser !== username) {
+      await increaseReferral(refUser);
+    }
+
+    // Page navigation
+    window.showSection = function (sectionId) {
+      document.querySelectorAll('section').forEach(section => {
+        section.classList.remove('active');
+      });
+      document.getElementById(sectionId).classList.add('active');
+    };
+
+    // Initial load
     updateReferralData();
   </script>
-  
 </body>
 </html>
