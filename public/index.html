@@ -18,6 +18,9 @@
     .leaderboard { margin-left: 20px;}
     #leaderboard-list li { list-style:none; padding:5px; border-bottom:1px solid #444; }
     .loading { color: #aaa; font-style: italic; }
+    .success { color: #4CAF50; }
+    .warning { color: #FF9800; }
+    .error { color: #F44336; }
   </style>
 </head>
 <body>
@@ -89,6 +92,11 @@
   tg.ready();
   tg.expand();
 
+  // Debugging function
+  function debugLog(message, data = null) {
+    console.log(`[DEBUG] ${message}`, data);
+  }
+
   function showSection(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -104,6 +112,7 @@
     }
     
     try {
+      debugLog("Adding points", {userId, amount});
       const userRef = db.collection('users').doc(userId);
       await userRef.update({
         points: firebase.firestore.FieldValue.increment(amount),
@@ -123,6 +132,7 @@
     if (!userId) return;
     
     try {
+      debugLog("Updating points display", {userId});
       const doc = await db.collection('users').doc(userId).get();
       if (doc.exists) {
         points = doc.data().points || 0;
@@ -130,6 +140,7 @@
         document.getElementById("balance-points").textContent = points;
         document.getElementById("user-points").classList.remove("loading");
         document.getElementById("balance-points").classList.remove("loading");
+        debugLog("Points updated", {points});
       }
     } catch (e) {
       console.error("Point update error:", e);
@@ -143,6 +154,7 @@
 
   async function loadLeaderboard() {
     try {
+      debugLog("Loading leaderboard");
       document.getElementById("leaderboard-list").innerHTML = '<li class="loading">Loading...</li>';
       
       const snapshot = await db.collection('users')
@@ -163,9 +175,10 @@
       }
       
       document.getElementById("leaderboard-list").innerHTML = html;
+      debugLog("Leaderboard loaded");
     } catch (error) {
       console.error("Error loading leaderboard:", error);
-      document.getElementById("leaderboard-list").innerHTML = "<li>Error loading leaderboard</li>";
+      document.getElementById("leaderboard-list").innerHTML = "<li class='error'>Error loading leaderboard</li>";
     }
   }
 
@@ -181,13 +194,15 @@
 
   async function processReferral(referrerId, newUserId) {
     try {
+      debugLog("Processing referral", {referrerId, newUserId});
+      
       // Check if referral already exists
       const referralRef = db.collection('referrals').doc(`${referrerId}_${newUserId}`);
       const referralDoc = await referralRef.get();
       
       if (referralDoc.exists) {
-        console.log("Referral already processed");
-        return false;
+        debugLog("Referral already exists");
+        return { success: false, message: "Referral already processed" };
       }
       
       // Create a batch for atomic operations
@@ -221,11 +236,11 @@
       // Commit the batch
       await batch.commit();
       
-      console.log("Referral processed successfully");
-      return true;
+      debugLog("Referral processed successfully");
+      return { success: true, message: "Referral bonus received! +50 points" };
     } catch (error) {
       console.error("Referral processing error:", error);
-      return false;
+      return { success: false, message: "Error processing referral" };
     }
   }
 
@@ -235,36 +250,41 @@
     const newUserId = tg.initDataUnsafe?.user?.id?.toString();
     
     if (!referrerId || !newUserId || referrerId === newUserId) {
+      debugLog("No valid referral found");
       return;
     }
     
     try {
+      debugLog("Checking referral", {referrerId, newUserId});
       const statusElement = document.getElementById("referral-status");
       statusElement.textContent = "Checking referral...";
-      statusElement.style.color = "#aaa";
+      statusElement.className = "loading";
       
-      const success = await processReferral(referrerId, newUserId);
+      const result = await processReferral(referrerId, newUserId);
       
-      if (success) {
-        statusElement.textContent = "🎉 Referral bonus received! +50 points";
-        statusElement.style.color = "#4CAF50";
-        updatePoints();
-      } else {
-        statusElement.textContent = "Referral already processed";
-        statusElement.style.color = "#FF9800";
+      statusElement.textContent = result.message;
+      statusElement.className = result.success ? "success" : "warning";
+      
+      if (result.success) {
+        // Force update points after successful referral
+        setTimeout(updatePoints, 1500);
       }
     } catch (error) {
       console.error("Referral check error:", error);
       document.getElementById("referral-status").textContent = "Error processing referral";
-      document.getElementById("referral-status").style.color = "#F44336";
+      document.getElementById("referral-status").className = "error";
     }
   }
 
   // Initialize user data
   async function initializeUser() {
     const user = tg.initDataUnsafe?.user;
-    if (!user) return;
+    if (!user) {
+      debugLog("No user data found");
+      return;
+    }
     
+    debugLog("Initializing user", user);
     document.getElementById('user-name').textContent = `Hello, ${user.first_name}`;
     document.getElementById('user-username').textContent = `@${user.username || 'No Username'}`;
     document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.it/60x60';
@@ -283,7 +303,7 @@
         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
       
-      console.log("User initialized in database");
+      debugLog("User initialized in database");
     } catch (error) {
       console.error("User initialization error:", error);
     }
@@ -291,11 +311,12 @@
 
   // Initialize the app
   document.addEventListener('DOMContentLoaded', async () => {
+    debugLog("App initialized");
     await initializeUser();
     updatePoints();
     
     // Check for referrals after a short delay
-    setTimeout(checkReferral, 1000);
+    setTimeout(checkReferral, 1500);
     
     // Show loading state
     document.getElementById("user-points").classList.add("loading");
